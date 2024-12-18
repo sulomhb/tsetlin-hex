@@ -9,7 +9,10 @@ from GraphTsetlinMachine.tm import MultiClassGraphTsetlinMachine
 from GraphTsetlinMachine.graphs import Graphs
 
 def defaultArgs(**kwargs):
-    # Default parameters
+    """
+    Set default arguments and adjust parameters based on board size.
+    Different board complexities (e.g., 3x3, 7x7, 11x11).
+    """
     epochs = 25
     boardSize = 11
     depth = 5
@@ -28,7 +31,7 @@ def defaultArgs(**kwargs):
 
     args = parser.parse_args(args=[])
 
-    # Set parameters based on board size
+    # Adjust TM parameters based on board size.
     if args.board_size == 3:
         args.number_of_clauses = 200
         args.T = 400
@@ -59,7 +62,12 @@ def defaultArgs(**kwargs):
 def positionToEdgeId(pos, boardSize):
     return pos[0] * boardSize + pos[1]
 
-def createGraphs(X_data, nodeNames, nEdgesList, edges, args, forTraining=True, baseGraphs=None):
+def createGraphs(X_data, nodeNames, nEdgesList, edges, args, boardSize, forTraining=True, baseGraphs=None):
+    """
+    Create Graph objects for training or testing data, encoding the Hex board states.
+    This step aligns with the methodology, where raw board states are converted 
+    into a graph-based representation for the Tsetlin Machine.
+    """
     if forTraining:
         graphs = Graphs(
             number_of_graphs=len(X_data),
@@ -94,16 +102,12 @@ def createGraphs(X_data, nodeNames, nEdgesList, edges, args, forTraining=True, b
     graphs.encode()
     return graphs
 
-def printClauseWeights(tm):
-    weights = tm.get_state()[1].reshape(2, -1)
-    clauseWeights = []
-    for i in range(tm.number_of_clauses):
-        positiveWeight = weights[0, i]
-        negativeWeight = weights[1, i]
-        clauseWeights.append((positiveWeight, negativeWeight))
-    return clauseWeights
-
 def plotAccuracies(trainAccuracies, testAccuracies):
+    """
+    Plot training and testing accuracies over epochs.
+    This visual aid supports the methodology's emphasis on monitoring performance 
+    throughout training and identifying where performance plateaus.
+    """
     plt.figure()
     plt.plot(range(1, len(trainAccuracies)+1), [a*100 for a in trainAccuracies], marker='o', label='Train Accuracy')
     plt.plot(range(1, len(testAccuracies)+1), [a*100 for a in testAccuracies], marker='o', label='Test Accuracy')
@@ -116,6 +120,9 @@ def plotAccuracies(trainAccuracies, testAccuracies):
     plt.close()
 
 def plotConfusionMatrix(yTrue, yPred, boardSize):
+    """
+    Plot a confusion matrix to visualize classification performance.
+    """
     cm = confusion_matrix(yTrue, yPred)
     plt.figure()
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=["Loss", "Win"], yticklabels=["Loss", "Win"])
@@ -126,10 +133,11 @@ def plotConfusionMatrix(yTrue, yPred, boardSize):
     plt.close()
 
 def plotClauseWeightDistribution(tm):
-    # Extract clause weights
+    """
+    Plot the distribution of clause weights for interpretability assessment.
+    """
     weights = tm.get_state()[1]
-    # We only have positive/negative combined; focusing on positive weights for demonstration
-    posWeights = weights[0:tm.number_of_clauses]  # assuming weights are arranged accordingly
+    posWeights = weights[0:tm.number_of_clauses]  # Assuming clause weights are structured this way.
     plt.figure()
     plt.hist(posWeights, bins=20, color='purple', edgecolor='black')
     plt.title("Distribution of Clause Weights")
@@ -139,36 +147,40 @@ def plotClauseWeightDistribution(tm):
     plt.savefig("clause_weights_distribution.png", dpi=300)
     plt.close()
 
-# Main execution starts here
 if __name__ == "__main__":
+    # Parse arguments and set defaults
     args = defaultArgs()
 
+    # Load data and board configuration
     data = pd.read_csv("hex_game_data_complete.csv", dtype=str)
     boardSize = args.board_size
     nodeNames = [f"{i}_{j}" for i in range(1, boardSize + 1) for j in range(1, boardSize + 1)]
     X = data[nodeNames].values
     y = data["Winner"].values.astype(int)
 
-    # Splitting data (90-10)
+    # Split data into training and test sets (90-10 split)
     splitIdx = int(len(data) * 0.9)
     X_train, X_test = X[:splitIdx], X[splitIdx:]
     y_train, y_test = y[:splitIdx], y[splitIdx:]
 
+    # Print label distribution for sanity check
     unique, counts = np.unique(y, return_counts=True)
     labelDistTrain = dict(zip(unique, counts))
     totalTrain = sum(counts)
-    print(f"Label distribution in dataset: {labelDistTrain}")
-    print(f"Percentage of '0's: {(labelDistTrain.get(0, 0) / totalTrain) * 100:.2f}%")
-    print(f"Percentage of '1's: {(labelDistTrain.get(1, 0) / totalTrain) * 100:.2f}%")
+    print("Overall dataset label distribution:")
+    print(f" {labelDistTrain}")
+    print(f" Percentage of '0's: {(labelDistTrain.get(0, 0) / totalTrain) * 100:.2f}%")
+    print(f" Percentage of '1's: {(labelDistTrain.get(1, 0) / totalTrain) * 100:.2f}%")
 
     uniqueTest, countsTest = np.unique(y_test, return_counts=True)
     labelDistTest = dict(zip(uniqueTest, countsTest))
     totalTest = sum(countsTest)
-    print(f"Test set label distribution: {labelDistTest}")
-    print(f"Test: Percentage of '0's: {(labelDistTest.get(0, 0) / totalTest) * 100:.2f}%")
-    print(f"Test: Percentage of '1's: {(labelDistTest.get(1, 0) / totalTest) * 100:.2f}%")
+    print("Test set label distribution:")
+    print(f" {labelDistTest}")
+    print(f" Test: Percentage of '0's: {(labelDistTest.get(0, 0) / totalTest) * 100:.2f}%")
+    print(f" Test: Percentage of '1's: {(labelDistTest.get(1, 0) / totalTest) * 100:.2f}%")
 
-    # Define edges
+    # Define edges for the Hex graph structure
     edges = []
     for i in range(boardSize):
         for j in range(boardSize):
@@ -179,22 +191,25 @@ if __name__ == "__main__":
             if i < boardSize - 1 and j > 0:
                 edges.append(((i, j), (i + 1, j - 1)))
 
+    # Determine the number of edges per node (nEdgesList)
     nEdgesList = []
     for i in range(boardSize ** 2):
         if i == 0 or i == boardSize ** 2 - 1:
-            nEdgesList.append(2)
+            nEdgesList.append(2)  # corners with 2 neighbors
         elif i == boardSize - 1 or i == boardSize ** 2 - boardSize:
-            nEdgesList.append(3)
+            nEdgesList.append(3)  # other corner-like positions
         elif i // boardSize == 0 or i // boardSize == boardSize - 1:
-            nEdgesList.append(4)
+            nEdgesList.append(4)  # top/bottom edges
         elif i % boardSize == 0 or i % boardSize == boardSize - 1:
-            nEdgesList.append(4)
+            nEdgesList.append(4)  # left/right edges
         else:
-            nEdgesList.append(6)
+            nEdgesList.append(6)  # center nodes
 
-    graphsTrain = createGraphs(X_train, nodeNames, nEdgesList, edges, args, forTraining=True)
-    graphsTest = createGraphs(X_test, nodeNames, nEdgesList, edges, args, forTraining=False, baseGraphs=graphsTrain)
+    # Create graph structures for training and test sets
+    graphsTrain = createGraphs(X_train, nodeNames, nEdgesList, edges, args, boardSize, forTraining=True)
+    graphsTest = createGraphs(X_test, nodeNames, nEdgesList, edges, args, boardSize, forTraining=False, baseGraphs=graphsTrain)
 
+    # Initialize the Tsetlin Machine
     tm = MultiClassGraphTsetlinMachine(
         args.number_of_clauses,
         args.T,
@@ -212,10 +227,10 @@ if __name__ == "__main__":
     trainAccuracies = []
     testAccuracies = []
 
-    # Training loop
-    for i in range(args.epochs):
+    # Train for the specified number of epochs
+    for epoch in range(args.epochs):
         if len(y_train) != graphsTrain.number_of_graphs:
-            raise ValueError(f"Mismatch: {len(y_train)} labels vs {graphsTrain.number_of_graphs} graphs.")
+            raise ValueError(f"Label/graph mismatch: {len(y_train)} labels vs {graphsTrain.number_of_graphs} graphs.")
 
         tm.fit(graphsTrain, y_train, epochs=1, incremental=True)
         y_train_pred = tm.predict(graphsTrain)
@@ -226,7 +241,7 @@ if __name__ == "__main__":
 
         trainAccuracies.append(trainAcc)
         testAccuracies.append(testAcc)
-        print(f"Epoch #{i+1} -- Train Acc: {trainAcc:.4f}, Test Acc: {testAcc:.4f}")
+        print(f"Epoch #{epoch+1} -- Train Acc: {trainAcc:.4f}, Test Acc: {testAcc:.4f}")
 
     trainingTime = time() - startTraining
     print(f"Training time: {trainingTime:.2f} seconds")
@@ -240,21 +255,20 @@ if __name__ == "__main__":
     bestTestAcc = np.max(testAccuracies)
     worstTestAcc = np.min(testAccuracies)
 
-    print(f"\nAverage Train Accuracy: {averageTrainAcc * 100:.2f}%")
+    print("\nPerformance Summary:")
+    print(f"Average Train Accuracy: {averageTrainAcc * 100:.2f}%")
     print(f"Average Test Accuracy: {averageTestAcc * 100:.2f}%")
     print(f"Best Train Accuracy: {bestTrainAcc * 100:.2f}%")
     print(f"Worst Train Accuracy: {worstTrainAcc * 100:.2f}%")
     print(f"Best Test Accuracy: {bestTestAcc * 100:.2f}%")
     print(f"Worst Test Accuracy: {worstTestAcc * 100:.2f}%")
 
-    # Plot accuracy curves
+    # Plot training/testing accuracies over epochs
     plotAccuracies(trainAccuracies, testAccuracies)
 
-    # Plot confusion matrix from final predictions
+    # Plot confusion matrix for the final predictions
     y_final_pred = tm.predict(graphsTest)
     plotConfusionMatrix(y_test, y_final_pred, boardSize)
 
     # Plot clause weight distribution
     plotClauseWeightDistribution(tm)
-
-    print("All plots and metrics have been generated and saved.")
