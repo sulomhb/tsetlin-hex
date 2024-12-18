@@ -65,8 +65,6 @@ def positionToEdgeId(pos, boardSize):
 def createGraphs(X_data, nodeNames, nEdgesList, edges, args, boardSize, forTraining=True, baseGraphs=None):
     """
     Create Graph objects for training or testing data, encoding the Hex board states.
-    This step aligns with the methodology, where raw board states are converted 
-    into a graph-based representation for the Tsetlin Machine.
     """
     if forTraining:
         graphs = Graphs(
