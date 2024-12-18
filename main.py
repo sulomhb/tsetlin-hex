@@ -103,8 +103,6 @@ def createGraphs(X_data, nodeNames, nEdgesList, edges, args, boardSize, forTrain
 def plotAccuracies(trainAccuracies, testAccuracies):
     """
     Plot training and testing accuracies over epochs.
-    This visual aid supports the methodology's emphasis on monitoring performance 
-    throughout training and identifying where performance plateaus.
     """
     plt.figure()
     plt.plot(range(1, len(trainAccuracies)+1), [a*100 for a in trainAccuracies], marker='o', label='Train Accuracy')
